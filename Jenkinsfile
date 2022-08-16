@@ -21,5 +21,15 @@ pipeline {
             }
           }
         }
+
+        stage('Docker Build and Push') {
+        steps {
+          withDockerRegistry([credentialsId: "docker.hub", url: ""]) {
+            sh 'printenv'
+            sh 'docker build -t chaksaray/numeric-app:""$GIT_COMMIT"" .'
+            sh 'docker push chaksaray/numeric-app:""$GIT_COMMIT""'
+          }
+        }
+      }
     }
 }
