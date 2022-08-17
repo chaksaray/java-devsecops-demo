@@ -5,15 +5,17 @@ pipeline {
   }
   stages {
       stage('Build Artifact') {
-            // steps {
-            //   sh "mvn clean package -DskipTests=true"
-            //   archive 'target/*.jar' //so that they can be downloaded later
-            // }
+            steps {
+              echo 'artifact builded'
+              // sh "mvn clean package -DskipTests=true"
+              // archive 'target/*.jar' //so that they can be downloaded later
+            }
         }
         stage('Unit Tests - JUnit and Jacoco') {
-          // steps {
-          //   sh "mvn test"
-          // }
+          steps {
+            echo 'unit test'
+            // sh "mvn test"
+          }
           // post {
           //   always {
           //     junit 'target/surefire-reports/*.xml'
@@ -33,12 +35,13 @@ pipeline {
         }
 
         stage('Kubernetes Deployment - DEV') {
-          // steps {
-          //   withKubeConfig([credentialsId: 'kubeconfig']) {
-          //     sh "sed -i 's#replace#chaksaray/numeric-app:${GIT_COMMIT}#g' k8s_deployment_service.yaml"
-          //     sh "kubectl apply -f k8s_deployment_service.yaml"
-          //   }
-          // }
+          steps {
+            echo 'kubernetes deployed'
+            // withKubeConfig([credentialsId: 'kubeconfig']) {
+            //   sh "sed -i 's#replace#chaksaray/numeric-app:${GIT_COMMIT}#g' k8s_deployment_service.yaml"
+            //   sh "kubectl apply -f k8s_deployment_service.yaml"
+            // }
+          }
         }
     }
 }
