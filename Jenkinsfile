@@ -4,25 +4,36 @@ pipeline {
       maven 'Maven 3.6.3'
   }
   stages {
-      stage('Build Artifact') {
-            steps {
-              echo 'artifact builded'
-              sh "mvn clean package -DskipTests=true"
-              archive 'target/*.jar' //so that they can be downloaded later
-              // archive 'target*//*.jar'
-            }
-        }
+        stage('Build Artifact') {
+              steps {
+                echo 'artifact builded'
+                sh "mvn clean package -DskipTests=true"
+                archive 'target/*.jar' //so that they can be downloaded later
+                // archive 'target*//*.jar'
+              }
+          }
         stage('Unit Tests - JUnit and Jacoco') {
           steps {
             echo 'unit test'
-            // sh "mvn test"
+            sh "mvn test"
           }
-          // post {
-          //   always {
-          //     junit 'target/surefire-reports/*.xml'
-          //     jacoco execPattern: 'target/jacoco.exec'
-          //   }
-          // }
+          post {
+            always {
+              junit 'target/surefire-reports/*.xml'
+              jacoco execPattern: 'target/jacoco.exec'
+            }
+          }
+        }
+
+        stage('Mutation Tests - PIT') {
+          steps {
+            sh "mvn org.pitest:pitest-maven:mutationCoverage"
+          }
+          post {
+            always {
+              pitmutation mutationStatsFile: '**/target/pit-reports/**/mutations.xml'
+            }
+          }
         }
 
         stage('Docker Build and Push') {
