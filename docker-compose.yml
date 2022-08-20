@@ -13,7 +13,8 @@ services:
   #     - '50000:50000'
 
   sonarqube:
-    image: sonarqube:7.6-community
+    image: sonarqube
+    # image: sonarqube:7.6-community
     volumes:
       - sonarqube_conf:/opt/sonarqube/conf
       - sonarqube_data:/opt/sonarqube/data
