@@ -3,6 +3,14 @@ pipeline {
   tools {
       maven 'Maven 3.6.3'
   }
+  environment {
+    deploymentName = "devsecops"
+    containerName = "devsecops-container"
+    serviceName = "devsecops-svc"
+    imageName = "chaksaray/numeric-app:${GIT_COMMIT}"
+    applicationURL = "http://68.183.235.149:8787"
+    applicationURI = "/increment/99"
+  }
   stages {
         stage('Build Artifact') {
               steps {
@@ -24,10 +32,18 @@ pipeline {
         }
 
         stage('SonarQube - SAST') {
-              steps {
-                sh "Sonarqube scan"
-                // sh "mvn clean verify sonar:sonar -Dsonar.projectKey=numeric-app -Dsonar.host.url=http://localhost:9000 -Dsonar.login=sqp_4ac6c7154a37970e77805fb8a628d07e2eb11a71"
+            steps {
+            withSonarQubeEnv('SonarQube') {
+              sh "mvn sonar:sonar \
+                      -Dsonar.projectKey=numeric-application \
+                      -Dsonar.host.url=http://68.183.235.149:9000"
+            }
+            timeout(time: 2, unit: 'MINUTES') {
+              script {
+                waitForQualityGate abortPipeline: true
               }
+            }
+          }
         }
 
         stage('Vulnerability Scan - Docker') {
@@ -55,16 +71,40 @@ pipeline {
             }
           }
         }
-
-        stage('Kubernetes Deployment - DEV') {
+        stage('Vulnerability Scan - Kubernetes') {
           steps {
-            echo 'kubernetes deployed'
-            // withKubeConfig([credentialsId: 'kubeconfig']) {
-            //   sh "sed -i 's#replace#chaksaray/numeric-app:${GIT_COMMIT}#g' k8s_deployment_service.yaml"
-            //   sh "kubectl apply -f k8s_deployment_service.yaml"
-            // }
+            sh 'docker run --rm -v $(pwd):/project openpolicyagent/conftest test --policy opa-k8s-security.rego k8s_deployment_service.yaml'
           }
         }
+        
+        // stage('Kubernetes Deployment - DEV') {
+        //   steps {
+        //     echo 'kubernetes deployed'
+        //     withKubeConfig([credentialsId: 'kubeconfig']) {
+        //       sh "sed -i 's#replace#chaksaray/numeric-app:${GIT_COMMIT}#g' k8s_deployment_service.yaml"
+        //       sh "kubectl apply -f k8s_deployment_service.yaml"
+        //     }
+        //   }
+        // }
+
+        stage('K8S Deployment - DEV') {
+          steps {
+            parallel(
+              "Deployment": {
+                withKubeConfig([credentialsId: 'kubeconfig']) {
+                  sh "bash k8s-deployment.sh"
+                }
+              },
+              "Rollout Status": {
+                withKubeConfig([credentialsId: 'kubeconfig']) {
+                  sh "bash k8s-deployment-rollout-status.sh"
+                }
+              }
+            )
+          }
+        }
+
+      }
     }
 
     post {
