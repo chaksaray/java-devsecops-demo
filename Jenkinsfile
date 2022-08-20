@@ -36,6 +36,24 @@ pipeline {
           }
         }
 
+        stage('SonarQube - SAST') {
+              steps {
+                sh "Sonarqube scan"
+                // sh "mvn clean verify sonar:sonar -Dsonar.projectKey=numeric-app -Dsonar.host.url=http://localhost:9000 -Dsonar.login=sqp_4ac6c7154a37970e77805fb8a628d07e2eb11a71"
+              }
+        }
+
+        stage('Vulnerability Scan - Docker ') {
+          steps {
+            sh "mvn dependency-check:check"
+          }
+          post {
+            always {
+              dependencyCheckPublisher pattern: 'target/dependency-check-report.xml'
+            }
+          }
+        }
+
         stage('Docker Build and Push') {
           steps {
             withDockerRegistry([credentialsId: "docker.hub", url: ""]) {
