@@ -1,8 +1,8 @@
 pipeline {
   agent any
-  tools {
-      maven 'Maven 3.6.3'
-  }
+  // tools {
+  //     maven 'Maven 3.6.3'
+  // }
   environment {
     deploymentName = "devsecops"
     containerName = "devsecops-container"
@@ -54,9 +54,9 @@ pipeline {
               },
               "Trivy Scan": {
                 sh "bash trivy-docker-image-scan.sh"
-              }
+              },
               "OPA Conftest": {
-                sh 'docker run --rm -v $(pwd):/project openpolicyagent/conftest test --policy opa-docker-security.rego Dockerfile'
+                sh "docker run --rm -v $(pwd):/project openpolicyagent/conftest test --policy opa-docker-security.rego Dockerfile"
               }
             )
           }
@@ -76,7 +76,7 @@ pipeline {
           steps {
             parallel(
               "OPA Scan": {
-                sh 'docker run --rm -v $(pwd):/project openpolicyagent/conftest test --policy opa-k8s-security.rego k8s_deployment_service.yaml'
+                sh "docker run --rm -v $(pwd):/project openpolicyagent/conftest test --policy opa-k8s-security.rego k8s_deployment_service.yaml"
               },
               "Kubesec Scan": {
                 sh "bash kubesec-scan.sh"
@@ -105,22 +105,30 @@ pipeline {
           }
         }
 
-      stage('Integration Tests - DEV') {
-        steps {
-          script {
-            try {
-              withKubeConfig([credentialsId: 'kubeconfig']) {
-                sh "bash integration-test.sh"
+        stage('Integration Tests - DEV') {
+          steps {
+            script {
+              try {
+                withKubeConfig([credentialsId: 'kubeconfig']) {
+                  sh "bash integration-test.sh"
+                }
+              } catch (e) {
+                withKubeConfig([credentialsId: 'kubeconfig']) {
+                  sh "kubectl -n default rollout undo deploy ${deploymentName}"
+                }
+                throw e
               }
-            } catch (e) {
-              withKubeConfig([credentialsId: 'kubeconfig']) {
-                sh "kubectl -n default rollout undo deploy ${deploymentName}"
-              }
-              throw e
             }
           }
         }
-      }
+
+        stage('OWASP ZAP - DAST') {
+          steps {
+            withKubeConfig([credentialsId: 'kubeconfig']) {
+              sh 'bash zap.sh'
+            }
+          }
+        }
 
     }
 
@@ -130,6 +138,7 @@ pipeline {
         jacoco execPattern: 'target/jacoco.exec'
         pitmutation mutationStatsFile: '**/target/pit-reports/**/mutations.xml'
         dependencyCheckPublisher pattern: 'target/dependency-check-report.xml'
+        publishHTML([allowMissing: false, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'owasp-zap-report', reportFiles: 'zap_report.html', reportName: 'OWASP ZAP HTML Report', reportTitles: 'OWASP ZAP HTML Report'])
       }
 
       // success {
